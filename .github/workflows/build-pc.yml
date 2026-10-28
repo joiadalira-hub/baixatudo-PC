@@ -1,0 +1,55 @@
+name: Gerar programa para Windows
+
+on:
+  push:
+    paths:
+      - "BaixaTudo-PC.zip"
+      - ".github/workflows/build-pc.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Descompactar projeto
+        shell: pwsh
+        run: Expand-Archive -Force BaixaTudo-PC.zip .
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        working-directory: BaixaTudo-PC
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Baixar yt-dlp, FFmpeg e Deno
+        working-directory: BaixaTudo-PC
+        shell: pwsh
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          New-Item -ItemType Directory -Force bin, tmp | Out-Null
+          Invoke-WebRequest https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile bin/yt-dlp.exe
+          Invoke-WebRequest https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip -OutFile tmp/ffmpeg.zip
+          Expand-Archive tmp/ffmpeg.zip tmp/ffmpeg
+          Get-ChildItem tmp/ffmpeg -Recurse -Include ffmpeg.exe, ffprobe.exe | Copy-Item -Destination bin
+          Invoke-WebRequest https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip -OutFile tmp/deno.zip
+          Expand-Archive tmp/deno.zip bin
+          Get-ChildItem bin
+
+      - name: Empacotar
+        working-directory: BaixaTudo-PC
+        run: >
+          pyinstaller --noconfirm --windowed --name BaixaTudo --icon assets/icon.ico
+          --add-data "baixatudo/web;baixatudo/web" --add-binary "bin/*;bin" main.py
+
+      - name: Testar o programa empacotado
+        working-directory: BaixaTudo-PC
+        run: python tests/smoke.py dist/BaixaTudo/BaixaTudo.exe dist/BaixaTudo/_internal/bin
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BaixaTudo-Windows
+          path: BaixaTudo-PC/dist/BaixaTudo
