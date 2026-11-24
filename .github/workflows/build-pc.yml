@@ -7,6 +7,9 @@ on:
       - ".github/workflows/build-pc.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -53,3 +56,15 @@ jobs:
         with:
           name: BaixaTudo-Windows
           path: BaixaTudo-PC/dist/BaixaTudo
+
+      - name: Publicar versão (link fixo de download)
+        working-directory: BaixaTudo-PC
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          Compress-Archive -Path dist/BaixaTudo -DestinationPath BaixaTudo-Windows.zip
+          gh release create "pc-v${{ github.run_number }}" BaixaTudo-Windows.zip `
+            --repo "${{ github.repository }}" --latest `
+            --title "BaixaTudo para Windows (versão ${{ github.run_number }})" `
+            --notes "Baixe BaixaTudo-Windows.zip, extraia e abra BaixaTudo.exe."
